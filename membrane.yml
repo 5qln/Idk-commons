@@ -1,0 +1,37 @@
+name: membrane
+
+# The commons-side membrane gate. Runs on every push and pull request so that
+# no question carrying private content (α, Z, ∇, B'', the Codex seal, a cycle
+# number) can ever land in the public commons — including via a direct push or
+# a fork's pull request. This is the third of the three gates; it trusts no
+# client. See bin/membrane_lint.py.
+
+on:
+  push:
+    paths:
+      - "questions/**"
+      - "bin/membrane_lint.py"
+      - ".github/workflows/membrane.yml"
+  pull_request:
+    paths:
+      - "questions/**"
+      - "bin/membrane_lint.py"
+      - ".github/workflows/membrane.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  membrane:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Run the membrane gate over every question
+        run: python3 bin/membrane_lint.py

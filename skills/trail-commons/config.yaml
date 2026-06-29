@@ -1,0 +1,49 @@
+# trail-commons — configuration
+#
+# Lives at ~/.5qln/trails/config.yaml (override with $TRAIL_COMMONS_CONFIG).
+# Everything here has a safe default; an absent or broken file never strands a
+# publish — the tool falls back to these values. Edit only what you mean to.
+
+# The commons remotes. The first is the default target for publish/discover.
+# Forkable: point this at your own mirror and you are running your own commons.
+remotes:
+  - git@github.com:5qln/questions.git
+
+paths:
+  # Local mirror of the commons (cloned on first discover/push).
+  commons_dir: ~/.5qln/trails/commons
+  # Where bundles and the discover cursor are written.
+  state_dir: ~/.5qln/trails
+  # The gate machine's cycle archive, read by `publish --from-archive`.
+  archive: ~/.5qln/cycles.jsonl
+
+privacy:
+  # ephemeral    — every commit authored as "trail-commons" (default).
+  # pseudonymous — commit as the `pseudonym` below (a stable pen name; this is
+  #                a deliberate, weaker privacy choice — your questions become
+  #                linkable to each other under one name).
+  mode: ephemeral
+
+  # How much time a commit reveals. Exact timestamps are a correlation vector
+  # across one person's publishes.
+  #   date  — midnight UTC of the publish day (default)
+  #   epoch — a fixed constant date for everyone (maximum flattening)
+  #   exact — the real commit time (no flattening; not recommended)
+  commit_time: date
+
+  # Whether the PUBLISHED FILE carries a day-level `date:` field.
+  #   false (default) — omit it. A date plus your writing voice can correlate
+  #                     several questions to one author over time.
+  #   true            — include it, to match the documented file format.
+  # NOTE: this is a flagged divergence from the brief's example format. The
+  # commons never depends on this field for discovery (git commit order does
+  # that). See ARCHITECTURE.md → "the date field is optional, and off."
+  include_date: false
+
+# Pen name used only when mode: pseudonymous. Keep null for ephemeral.
+pseudonym: null
+
+# Route git over a local Tor SOCKS5 proxy (127.0.0.1:9050). Documented, not
+# required for the MVP. Hides your IP from the remote; does nothing about the
+# content of what you publish — the membrane gate does that.
+tor: false
