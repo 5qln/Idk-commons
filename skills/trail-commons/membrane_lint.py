@@ -120,7 +120,11 @@ def check(text: str, relname: str):
         # Filename + shard integrity: questions/<w[:2]>/<w[2:4]>/<w>.md
         parts = Path(relname).parts
         if "questions" in parts:
-            i = parts.index("questions")
+            # Anchor to the LAST "questions" segment. A checkout directory (or any
+            # ancestor) literally named "questions" must not be mistaken for the
+            # commons questions/ subdir — the shard tail is always the final three
+            # segments (<xx>/<yy>/<hash>.md), so the last occurrence is the gate.
+            i = len(parts) - 1 - parts[::-1].index("questions")
             tail = parts[i + 1:]
             if len(tail) != 3:
                 problems.append(
