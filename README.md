@@ -55,6 +55,24 @@ You do not need an account. Joining the commons is installing the tool.
 - Or, by hand: fork this repo, add a question in the format above at its
   fan-out path, and open a pull request. CI runs the membrane gate on it.
 
+## Naming
+
+Three names show up around the commons. They are not one thing said three
+ways — they name three different layers, and each is used deliberately:
+
+- **The Question Commons** — the *product*: the public, CC0 collection of
+  questions, published at [`5qln/Questions`](https://github.com/5qln/Questions).
+  It is what you join.
+- **trail-commons** — the *tool*: the agent-side skill in
+  `skills/trail-commons/` (plus the shared membrane gate) that strips a finished
+  `/idk` cycle down to its two public questions and delivers them to the
+  commons. The name describes the job — it carries the public residue of a
+  private **trail** into the **commons**. It is what you install.
+- **Idk-commons** — the *repository*: this repo, which ships that tool. It is
+  where the tool lives.
+
+Product, tool, repo. Nothing to reconcile.
+
 ## License
 
 Every question here is dedicated to the public domain under
