@@ -45,7 +45,7 @@ discipline. It is checked **three times**, in three different trust domains:
    gated locally; the human reads them and attests before anything moves.
 2. **Steward ingest** (`ingest`). A submitted bundle is never trusted. The gate
    re-runs on every question it carries, server-side.
-3. **Commons CI** (`questions/bin/membrane_lint.py`, run by GitHub Actions on
+3. **Commons CI** (`skills/trail-commons/membrane_lint.py`, run by GitHub Actions on
    every changed file). Even a direct push by someone with write access is
    gated before it can land.
 
@@ -205,3 +205,15 @@ stylometry. The gate cannot launder a voice. The preview says so every time.
   the same restraint the cycle itself is built on.
 
 Form only. Never life. Only the question travels. The trail is yours.
+
+## Known limitations
+
+**DNS resolution under Tor.** When `tor: true`, HTTPS remotes are proxied with
+`ALL_PROXY=socks5h://127.0.0.1:9050` — the `h` means the remote hostname is
+resolved *through* Tor, so there is no DNS leak on that path. The SSH transport,
+however, tunnels via `nc -X 5 -x 127.0.0.1:9050`, and whether the hostname is
+resolved locally or by the proxy depends on the `netcat` implementation on the
+host; some resolve locally, which leaks the remote's DNS query outside Tor. If
+anonymity of the *destination* matters, use an HTTPS or `.onion` remote (which
+forces resolution through Tor) and verify with a DNS-leak test before relying on
+it. This is a documented limitation, not an MVP guarantee.

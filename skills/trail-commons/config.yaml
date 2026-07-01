@@ -47,3 +47,7 @@ pseudonym: null
 # required for the MVP. Hides your IP from the remote; does nothing about the
 # content of what you publish — the membrane gate does that.
 tor: false
+
+# Branch the publisher pushes questions to on the commons remote.
+# Optional; defaults to "main" when omitted.
+branch: main

@@ -50,6 +50,7 @@ import hashlib
 import json
 import os
 import re
+import uuid
 import shutil
 import subprocess
 import sys
@@ -130,6 +131,7 @@ def load_config() -> dict:
     home = Path.home()
     defaults = {
         "remotes": [DEFAULT_REMOTE],
+        "branch": "main",
         "commons_dir": str(home / ".5qln" / "trails" / "commons"),
         "state_dir": str(home / ".5qln" / "trails"),
         "archive": str(home / ".5qln" / "cycles.jsonl"),
@@ -162,8 +164,11 @@ def load_config() -> dict:
                 defaults["pseudonym"] = p if p not in ("", []) else None
             if "tor" in loaded:
                 defaults["tor"] = loaded["tor"]
-        except Exception:
-            pass  # a broken config must not strand a publish; fall back to defaults
+            if isinstance(loaded.get("branch"), str) and loaded["branch"].strip():
+                defaults["branch"] = loaded["branch"].strip()
+        except Exception as exc:
+            sys.stderr.write(f"warning: config parse failed, using defaults: {exc}\n")
+            # a broken config must not strand a publish; fall back to defaults
     return defaults
 
 
@@ -197,6 +202,7 @@ def normalize_question(text: str) -> str:
     t = unicodedata.normalize("NFC", text)
     t = t.strip()
     t = re.sub(r"\s+", " ", t)
+    text = text.translate({ord(c): None for c in _ZERO_WIDTH})
     return t
 
 
@@ -293,7 +299,7 @@ def _first_meaningful(body: str) -> Optional[str]:
             continue  # captions like *Published: ...*
         if s.startswith(("```", "---", ">")):
             continue
-        return s.lstrip("# ").strip()
+        return re.sub(r"^#\s+", "", s).strip()  # H13: strip the prefix, not a char-set
     return None
 
 
@@ -378,34 +384,37 @@ def build_public_file(x: str, inf0: str, include_date: bool = False) -> str:
 # Markers that must NEVER appear in a public question. Their presence means a
 # private phase leaked across the membrane. This is the load-bearing guarantee.
 _FORBIDDEN = [
-    (r"α", "alpha (α) — the private seed"),
-    (r"\{α'\}", "echoes {α'}"),
-    (r"\bALPHA:", "ALPHA: footer field"),
-    (r"\bSEEKS:", "SEEKS: footer field"),
-    (r"\bPHI:", "PHI: footer field"),
-    (r"\bOMEGA:", "OMEGA: footer field"),
-    (r"\bALIGNMENT:", "ALIGNMENT: footer field"),
-    (r"\bEXTENT:", "EXTENT: footer field"),
-    (r"^\s*Z:", "Z: (the click) footer field"),
-    (r"\bVALUE_MAX:", "VALUE_MAX: footer field"),
-    (r"\bENERGY:", "ENERGY: footer field"),
-    (r"\bB2:", "B2: (artifact) footer field"),
-    (r"\bLIVENESS:", "LIVENESS: footer field"),
-    (r"^\s*L:\s", "L: (what crystallized) footer field"),
-    (r"φ\s*⋂\s*Ω", "Q-phase formula φ ⋂ Ω"),
-    (r"δE", "P-phase energy term δE"),
-    (r"δV", "P-phase value term δV"),
-    (r"∇", "gradient ∇ — the private direction"),
-    (r"B''", "B'' — the private artifact"),
-    (r"##\s*α", "α section heading"),
-    (r"##\s*Z\b", "Z section heading"),
-    (r"##\s*∇", "∇ section heading"),
-    (r"##\s*Raw Material", "raw-material section (the φ corpus)"),
-    (r"##\s*The Field Condition", "field-condition section"),
-    (re.escape(CODEX_HASH), "the Codex seal hash (a private surface leaked)"),
-    (r'"(?:opened|pending|gate_violations)"', "gate-machine JSON"),
-    (r"^cycle:\s*\d", "cycle number in frontmatter (deanonymization vector)"),
-    (r"#\s*Cycle\s+\d", "Cycle-N heading (deanonymization vector)"),
+    ("α", "alpha (α) — the private seed"),
+    ("\\{α'\\}", "echoes {α'}"),
+    ("\\bALPHA\\s*[:=]", "ALPHA footer field"),
+    ("\\bSEEKS\\s*[:=]", "SEEKS footer field"),
+    ("\\bPHI\\s*[:=]", "PHI footer field"),
+    ("\\bOMEGA\\s*[:=]", "OMEGA footer field"),
+    ("\\bALIGNMENT\\s*[:=]", "ALIGNMENT footer field"),
+    ("\\bEXTENT\\s*[:=]", "EXTENT footer field"),
+    ("^\\s*Z\\s*[:=]", "Z: (the click) footer field"),
+    ("\\bVALUE_MAX\\s*[:=]", "VALUE_MAX footer field"),
+    ("\\bENERGY\\s*[:=]", "ENERGY footer field"),
+    ("\\bB2\\s*[:=]", "B2: (artifact) footer field"),
+    ("\\bLIVENESS\\s*[:=]", "LIVENESS footer field"),
+    ("^\\s*L\\s*[:=]\\s", "L: (what crystallized) footer field"),
+    ("φ\\s*⋂\\s*Ω", "Q-phase formula φ ⋂ Ω"),
+    ("δE", "P-phase energy term δE"),
+    ("δV", "P-phase value term δV"),
+    ("∇", "gradient ∇ — the private direction"),
+    ("B''", "B'' — the private artifact"),
+    ("##\\s*α", "α section heading"),
+    ("##\\s*Z\\b", "Z section heading"),
+    ("##\\s*∇", "∇ section heading"),
+    ("##\\s*Raw Material", "raw-material section (the φ corpus)"),
+    ("##\\s*The Field Condition", "field-condition section"),
+    ("\"(?:opened|pending|gate_violations)\"", "gate-machine JSON"),
+    ("^cycle:\\s*\\d", "cycle number in frontmatter (deanonymization vector)"),
+    ("#\\s*Cycle\\s+\\d", "Cycle-N heading (deanonymization vector)"),
+    ("[\\u200b\\u200c\\u200d\\u2060\\ufeff]", "zero-width character (steganography channel)"),
+    ("(?im)^\\s*author\\s*[:=]\\s*\\S", "author attribution (the commons has no authors)"),
+    ("\\bBy:\\s+\\w", "by-line attribution"),
+    ("[\\w.+-]+@[\\w-]+\\.\\w+", "email address (an identity)"),
 ]
 
 # Heuristic personal-data patterns. These are WARNINGS, not hard blocks — they
@@ -414,27 +423,44 @@ _FORBIDDEN = [
 _PII = [
     (re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"), "an email address"),
     (re.compile(r"(?<!\w)@[A-Za-z0-9_]{2,}"), "an @handle"),
-    (re.compile(r"https?://(?!.*5qln)\S+"), "a URL (other than 5qln)"),
+    (re.compile(r"https?://(?!(?:[\w.-]+\.)?5qln\.[\w]+)\S+"), "a URL (other than 5qln)"),
     (re.compile(r"\b\+?\d[\d\s().-]{7,}\d\b"), "a phone-number-like string"),
 ]
 
+
+
+# Confusable-resistant scanning, kept behaviourally identical to membrane_lint.
+_ZERO_WIDTH = "\u200b\u200c\u200d\u2060\ufeff"
+_CONFUSABLES = str.maketrans({
+    "\u2018": "'", "\u2019": "'", "\u2032": "'",
+    "\u201c": '"', "\u201d": '"',
+    "\u2229": "\u22c2",
+})
+
+
+def _fold(text: str) -> str:
+    """NFKD + confusable folding so a homoglyph cannot mask a private marker."""
+    return unicodedata.normalize("NFKD", text).translate(_CONFUSABLES)
 
 def membrane_check(public_text: str) -> List[str]:
     """Hard gate. Returns the private markers found in the bytes about to be
     published. Empty list = clean. A publish with any issue here is refused."""
     issues = []
+    folded = _fold(public_text)
     for pat, label in _FORBIDDEN:
-        if re.search(pat, public_text, re.M):
+        if re.search(pat, folded, re.M) or re.search(pat, public_text, re.M):
             issues.append(f"private content present: {label}")
+    if re.search(re.escape(CODEX_HASH), public_text):
+        issues.append("private content present: the Codex seal hash")
     # Positive form: a public question must actually be two questions.
-    if "# " not in public_text:
+    if not re.search(r"^# ", public_text, re.M):        # H14: not a substring test
         issues.append("no question heading (#) — there is no X to publish")
     if f"spdx: {SPDX}" not in public_text:
         issues.append(f"missing SPDX dedication: {SPDX}")
     if "content_hash: sha256:" not in public_text:
         issues.append("missing content_hash")
-    if "∞0'" not in public_text:
-        issues.append("missing ∞0' — a published question must open a return question")
+    if not re.search(r"^##\s+∞0'\s*[—-]", public_text, re.M):
+        issues.append("missing '## ∞0' —' return-question heading")
     return issues
 
 
@@ -473,7 +499,7 @@ def _git(cwd: Path, *args, env=None, check=True) -> subprocess.CompletedProcess:
         base_env.update(env)
     return subprocess.run(["git", *args], cwd=str(cwd), env=base_env,
                           capture_output=True, text=True,
-                          check=False if not check else False)
+                          check=check)
 
 
 def _ensure_clone(cfg: dict) -> Tuple[Optional[Path], Optional[str]]:
@@ -636,7 +662,7 @@ def cmd_publish(cfg: dict, *, trail_path: Optional[str], from_archive: bool,
         if c.returncode != 0:
             return _emit({**result, "ok": False, "error": "commit_failed",
                           "detail": c.stderr.strip() or c.stdout.strip()}, code=1)
-        p = _git(clone, "push", cfg["remotes"][0], "HEAD:refs/heads/main",
+        p = _git(clone, "push", cfg["remotes"][0], f"HEAD:refs/heads/{cfg.get('branch', 'main')}",
                  env=_tor_env(cfg), check=False)
         if p.returncode != 0:
             result.update(ok=False, pushed=False, push_error=p.stderr.strip(),
@@ -697,7 +723,7 @@ def cmd_ingest(cfg: dict, bundle: str) -> int:
     commons, err = _ensure_clone(cfg)
     if commons is None:
         return _emit({"ok": False, "error": "no_commons_clone", "detail": err})
-    ref = f"refs/ingest/{datetime.now(timezone.utc).strftime('%H%M%S')}"
+    ref = f"refs/ingest/{uuid.uuid4().hex}"
     f = _git(commons, "fetch", str(Path(bundle).resolve()),
              f"refs/heads/incoming:{ref}", check=False)
     if f.returncode != 0:
@@ -729,14 +755,23 @@ def cmd_ingest(cfg: dict, bundle: str) -> int:
             p.write_text(text, encoding="utf-8")
             _git(commons, "add", rel, check=False)
             accepted.append(rel)
+    merged, no_op = [], []
     if accepted:
-        _git(commons, "commit", "-q", "-m", f"ingest: {len(accepted)} question(s)",
-             env=_commit_env(cfg), check=False)
+        c = _git(commons, "commit", "-q", "-m", f"ingest: {len(accepted)} question(s)",
+                 env=_commit_env(cfg), check=False)
+        if c.returncode == 0:
+            merged = accepted
+        elif "nothing to commit" in (c.stdout + c.stderr).lower():
+            no_op = accepted  # every accepted file was already present, byte-identical
+        else:
+            _git(commons, "update-ref", "-d", ref, check=False)
+            return _emit({"ok": False, "error": "commit_failed",
+                          "detail": c.stderr.strip() or c.stdout.strip()}, code=1)
     _git(commons, "update-ref", "-d", ref, check=False)
     return _emit({"ok": len(rejected) == 0, "action": "ingest",
-                  "accepted": accepted, "rejected": rejected,
-                  "note": "rejected files carried private content or a mismatched "
-                          "hash and were not merged"})
+                  "merged": merged, "no_op": no_op, "rejected": rejected,
+                  "note": "merged = newly added; no_op = passed the gate but already "
+                          "present; rejected = private content or a mismatched hash"})
 
 
 # ── discover ────────────────────────────────────────────────────────────────
@@ -876,29 +911,56 @@ def _emit(obj: dict, code: int = 0) -> int:
     return code
 
 
+def _usage() -> int:
+    """Print the verbs and their flags (M12: previously there was no --help)."""
+    print(json.dumps({
+        "ok": True,
+        "tool": "trail-commons",
+        "verbs": {
+            "publish":  ["--trail", "--from-archive", "--cycle N", "--x", "--inf0",
+                          "--confirm", "--transport {bundle|push}", "--bundle-out"],
+            "discover": ["--remote"],
+            "browse":   ["--commons-dir"],
+            "ingest":   ["--bundle"],
+            "selftest": [],
+        },
+        "note": "Flags accept both '--flag value' and '--flag=value'.",
+    }, indent=2))
+    return 0
+
+
 def main(argv: List[str]) -> int:
     if len(argv) < 2:
         print(__doc__.strip().split("\n\n")[0])
         print("\nverbs: publish | discover | browse <id> | ingest <bundle> | selftest")
         return 1
+    if len(argv) < 2 or argv[1] in ("-h", "--help", "help"):
+        return _usage()
     cfg = load_config()
     verb = argv[1]
     rest = argv[2:]
 
     def opt(name, default=None):
-        if name in rest:
-            i = rest.index(name)
-            return rest[i + 1] if i + 1 < len(rest) else default
+        for i, tok in enumerate(rest):
+            if tok == name:
+                return rest[i + 1] if i + 1 < len(rest) else default
+            if tok.startswith(name + "="):          # M12: support --flag=value
+                return tok[len(name) + 1:]
         return default
 
-    flag = lambda name: name in rest
+    def flag(name):
+        return any(tok == name or tok == name + "=true" for tok in rest)
+
+    cyc = opt("--cycle")
+    if cyc is not None and not cyc.lstrip("-").isdigit():   # M12: no ValueError crash
+        return _emit({"ok": False, "error": "invalid --cycle (must be an integer)"}, code=1)
 
     if verb == "publish":
         return cmd_publish(
             cfg,
             trail_path=opt("--trail"),
             from_archive=flag("--from-archive"),
-            archive_index=(int(opt("--cycle")) if opt("--cycle") else None),
+            archive_index=(int(cyc) if cyc is not None else None),
             x=opt("--x"), inf0=opt("--inf0"),
             confirm=flag("--confirm"),
             transport=(opt("--transport") or "bundle"),
