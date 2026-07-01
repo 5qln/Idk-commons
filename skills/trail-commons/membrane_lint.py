@@ -1,77 +1,79 @@
 #!/usr/bin/env python3
 """
-membrane_lint.py — the commons-side privacy gate.
+membrane_lint.py — the commons-side privacy gate (third of three).
 
-This is the third and final check on the membrane (the others run in the
-publishing client and in the steward's ingest). It runs in CI on every changed
-question file, so that NOTHING private can land in the public commons even if a
-file was crafted by hand, submitted through a fork, or pushed directly by
-someone with write access. It trusts no client.
+Runs in CI on every changed question so NOTHING private can land in the public
+commons even if a file was crafted by hand, submitted through a fork, or pushed
+directly by someone with write access. It trusts no client.
 
-It is intentionally self-contained — stdlib only, no import of the publishing
-tool — because it must run in the commons repo, which carries only questions.
-The rules here are kept byte-for-byte identical to the client's membrane_check
-so the three gates never disagree.
+The rules (the forbidden markers, the Codex hash, the SPDX id) are loaded from
+membrane-spec.json — the single source of truth shared byte-for-byte with the
+publishing client, so the gates cannot silently disagree.
 
 Usage:
     membrane_lint.py [FILE ...]      # check the named files
-    membrane_lint.py                 # check every questions/**/*.md
+    membrane_lint.py                 # check every file under questions/
 
-Exit 0 if all clean; exit 1 (with a report) if any file would leak.
+Exit 0 if all clean; exit 1 (with a report) if any file would leak, if a
+non-question file appears under questions/, or if there is nothing to check.
 
       Form only. Never life.
 """
 
 import hashlib
+import json
 import re
 import sys
 import unicodedata
 from pathlib import Path
 
-SPDX = "CC0-1.0"
-CODEX_HASH = "feaa46b4147d4e023cdd3fd59c051d063e8ec654ee7b38a481dcd5e4c781859b"
+REPO = Path(__file__).resolve().parents[2]
+SPEC_PATH = REPO / "membrane-spec.json"
 
-# Private phase markers. Presence of any one means a private surface leaked.
-FORBIDDEN = [
-    (r"α", "alpha (α) — the private seed"),
-    (r"\{α'\}", "echoes {α'}"),
-    (r"\bALPHA:", "ALPHA: footer field"),
-    (r"\bSEEKS:", "SEEKS: footer field"),
-    (r"\bPHI:", "PHI: footer field"),
-    (r"\bOMEGA:", "OMEGA: footer field"),
-    (r"\bALIGNMENT:", "ALIGNMENT: footer field"),
-    (r"\bEXTENT:", "EXTENT: footer field"),
-    (r"^\s*Z:", "Z: (the click) footer field"),
-    (r"\bVALUE_MAX:", "VALUE_MAX: footer field"),
-    (r"\bENERGY:", "ENERGY: footer field"),
-    (r"\bB2:", "B2: (artifact) footer field"),
-    (r"\bLIVENESS:", "LIVENESS: footer field"),
-    (r"^\s*L:\s", "L: (what crystallized) footer field"),
-    (r"φ\s*⋂\s*Ω", "Q-phase formula φ ⋂ Ω"),
-    (r"δE", "P-phase energy term δE"),
-    (r"δV", "P-phase value term δV"),
-    (r"∇", "gradient ∇ — the private direction"),
-    (r"B''", "B'' — the private artifact"),
-    (r"##\s*α", "α section heading"),
-    (r"##\s*Z\b", "Z section heading"),
-    (r"##\s*∇", "∇ section heading"),
-    (r"##\s*Raw Material", "raw-material section (the φ corpus)"),
-    (r"##\s*The Field Condition", "field-condition section"),
-    (re.escape(CODEX_HASH), "the Codex seal hash (a private surface leaked)"),
-    (r'"(?:opened|pending|gate_violations)"', "gate-machine JSON"),
-    (r"^cycle:\s*\d", "cycle number in frontmatter (deanonymization vector)"),
-    (r"#\s*Cycle\s+\d", "Cycle-N heading (deanonymization vector)"),
-]
+# Zero-width / BOM code points, stripped before hashing and forbidden outright.
+_ZERO_WIDTH = "\u200b\u200c\u200d\u2060\ufeff"
+# Confusable folding: curly quotes/prime -> ASCII apostrophe; intersection
+# look-alike -> the sealed one. Applied on top of NFKD compatibility folding.
+_CONFUSABLES = str.maketrans({
+    "\u2018": "'", "\u2019": "'", "\u2032": "'",   # ' ' ′  -> '
+    "\u201c": '"', "\u201d": '"',                   # " "    -> "
+    "\u2229": "\u22c2",                              # ∩ -> ⋂
+})
 
 
-def normalize_question(text: str) -> str:
+def _load_spec():
+    try:
+        spec = json.loads(SPEC_PATH.read_text(encoding="utf-8"))
+    except Exception as e:
+        sys.stderr.write(f"membrane_lint: cannot load {SPEC_PATH.name}: {e}\n")
+        raise SystemExit(2)
+    codex = spec["codex_hash"]
+    spdx = spec["spdx"]
+    forbidden = [(re.compile(pat, re.M), label) for pat, label in spec["forbidden"]]
+    # The Codex seal itself is a private surface — derive it from the spec.
+    forbidden.append((re.compile(re.escape(codex)),
+                      "the Codex seal hash (a private surface leaked)"))
+    return codex, spdx, forbidden
+
+
+CODEX_HASH, SPDX, FORBIDDEN = _load_spec()
+
+
+def _fold(text: str) -> str:
+    """Compatibility-fold + normalize confusables so a homoglyph cannot mask a
+    private marker (mathematical alpha, fullwidth letters, curly quotes, ∩)."""
+    return unicodedata.normalize("NFKD", text).translate(_CONFUSABLES)
+
+
+def normalize_heading(text: str) -> str:
+    """Normalize an H1 for hashing: NFC, drop zero-width, collapse whitespace."""
     t = unicodedata.normalize("NFC", text)
-    t = t.strip()
-    return re.sub(r"\s+", " ", t)
+    t = t.translate({ord(c): None for c in _ZERO_WIDTH})
+    return re.sub(r"\s+", " ", t.strip())
 
 
 def content_hash(x: str) -> str:
-    return hashlib.sha256(normalize_question(x).encode("utf-8")).hexdigest()
+    return hashlib.sha256(normalize_heading(x).encode("utf-8")).hexdigest()
 
 
 def heading_of(text: str):
@@ -79,54 +81,98 @@ def heading_of(text: str):
     return m.group(1) if m else None
 
 
+def _frontmatter(text: str) -> str:
+    """Return the YAML frontmatter block, or '' if there isn't a proper one."""
+    m = re.match(r"^---\s*\n(.*?)\n---\s*\n", text, re.S)
+    return m.group(1) if m else ""
+
+
 def check(text: str, relname: str):
     """Return a list of problems for one question file. Empty list = clean."""
     problems = []
+    folded = _fold(text)
     for pat, label in FORBIDDEN:
-        if re.search(pat, text, re.M):
+        if pat.search(folded) or pat.search(text):
             problems.append(f"private content present: {label}")
-    # Positive form: a public question is two questions plus its dedication.
-    if "# " not in text:
-        problems.append("no question heading (#) — there is no X")
-    if f"spdx: {SPDX}" not in text:
-        problems.append(f"missing SPDX dedication: {SPDX}")
+
+    # Positive form: a public question is two questions plus its CC0 dedication.
+    if not re.search(r"^# ", text, re.M):
+        problems.append("no level-1 question heading (#) — there is no X")
+
+    fm = _frontmatter(text)
+    if not re.search(r"^spdx:\s*" + re.escape(SPDX) + r"\s*$", fm, re.M):
+        problems.append(f"missing SPDX dedication in frontmatter: {SPDX}")
+
+    hashm = re.search(r"^content_hash:\s*sha256:([0-9a-f]{64})\s*$", fm, re.M)
+    if not hashm:
+        problems.append("missing/invalid content_hash in frontmatter")
+
+    if not re.search(r"^##\s+∞0'\s*[—-]", text, re.M):
+        problems.append("missing '## ∞0' —' return-question heading")
+
     head = heading_of(text)
-    fm = re.search(r"content_hash:\s*sha256:([0-9a-f]{64})", text)
-    if not fm:
-        problems.append("missing content_hash")
-    if "∞0'" not in text:
-        problems.append("missing ∞0' — a published question must open a return question")
-    # Hash integrity: the frontmatter hash must equal the hash of the heading.
-    if head and fm:
+    if head and hashm:
         want = content_hash(head)
-        if want != fm.group(1):
+        if want != hashm.group(1):
             problems.append(
                 f"hash mismatch: heading hashes to {want[:16]}…, "
-                f"frontmatter says {fm.group(1)[:16]}…")
-        # Filename integrity: the file must be named for its own content hash,
-        # so no question can be smuggled in under another's address.
-        stem = Path(relname).stem
-        if stem != want:
-            problems.append(
-                f"filename does not match content hash (expected {want[:16]}….md)")
+                f"frontmatter says {hashm.group(1)[:16]}…")
+        # Filename + shard integrity: questions/<w[:2]>/<w[2:4]>/<w>.md
+        parts = Path(relname).parts
+        if "questions" in parts:
+            i = parts.index("questions")
+            tail = parts[i + 1:]
+            if len(tail) != 3:
+                problems.append(
+                    "wrong shard depth (expected questions/<xx>/<yy>/<hash>.md)")
+            else:
+                s1, s2, fname = tail
+                if s1 != want[:2] or s2 != want[2:4]:
+                    problems.append(
+                        f"shard path does not match content hash "
+                        f"(expected {want[:2]}/{want[2:4]}/)")
+                if Path(fname).stem != want:
+                    problems.append(
+                        f"filename does not match content hash "
+                        f"(expected {want[:16]}….md)")
+        else:
+            if Path(relname).stem != want:
+                problems.append(
+                    f"filename does not match content hash "
+                    f"(expected {want[:16]}….md)")
     return problems
 
 
-def iter_targets(argv):
-    if argv:
-        for a in argv:
-            yield Path(a)
-    else:
-        root = Path("questions")
-        if root.is_dir():
-            yield from sorted(root.rglob("*.md"))
+def iter_all_files():
+    root = REPO / "questions"
+    if not root.is_dir():
+        return None  # signal: no commons directory at all
+    return sorted(p for p in root.rglob("*") if p.is_file())
 
 
 def main(argv):
-    targets = [p for p in iter_targets(argv) if p.suffix == ".md"]
-    if not targets:
-        print("membrane_lint: no question files to check.")
-        return 0
+    if argv:
+        targets = [Path(a) for a in argv]
+    else:
+        found = iter_all_files()
+        if found is None:
+            print("✗ membrane gate: no questions/ directory — nothing to verify.")
+            return 1
+        targets = found
+        if not targets:
+            print("✗ membrane gate: questions/ is empty. Refusing to pass an "
+                  "empty commons (guards against silent deletion).")
+            return 1
+
+    # C7: only .md question files may live under questions/. A non-.md file is
+    # never scanned by the positive checks, so it is a leak vector — reject it.
+    non_md = [str(p) for p in targets if p.suffix != ".md"]
+    if non_md:
+        print("✗ membrane gate: non-question files under questions/:")
+        for p in non_md:
+            print(f"     - {p}")
+        return 1
+
     failed = {}
     for p in targets:
         try:
@@ -134,9 +180,10 @@ def main(argv):
         except Exception as e:  # unreadable file is itself a failure
             failed[str(p)] = [f"could not read: {e}"]
             continue
-        problems = check(text, p.name)
+        problems = check(text, str(p))
         if problems:
             failed[str(p)] = problems
+
     if failed:
         print("✗ membrane gate: private content would enter the commons.\n")
         for fname, probs in failed.items():

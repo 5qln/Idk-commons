@@ -1,0 +1,132 @@
+{
+  "spec_version": "2026-07-01",
+  "note": "Single source of truth for the membrane. Kept BYTE-IDENTICAL across Questions and Idk-commons. A change here must land in both repos; the sync test pins this file's SHA-256.",
+  "codex_hash": "feaa46b4147d4e023cdd3fd59c051d063e8ec654ee7b38a481dcd5e4c781859b",
+  "spdx": "CC0-1.0",
+  "forbidden": [
+    [
+      "α",
+      "alpha (α) — the private seed"
+    ],
+    [
+      "\\{α'\\}",
+      "echoes {α'}"
+    ],
+    [
+      "\\bALPHA\\s*[:=]",
+      "ALPHA footer field"
+    ],
+    [
+      "\\bSEEKS\\s*[:=]",
+      "SEEKS footer field"
+    ],
+    [
+      "\\bPHI\\s*[:=]",
+      "PHI footer field"
+    ],
+    [
+      "\\bOMEGA\\s*[:=]",
+      "OMEGA footer field"
+    ],
+    [
+      "\\bALIGNMENT\\s*[:=]",
+      "ALIGNMENT footer field"
+    ],
+    [
+      "\\bEXTENT\\s*[:=]",
+      "EXTENT footer field"
+    ],
+    [
+      "^\\s*Z\\s*[:=]",
+      "Z: (the click) footer field"
+    ],
+    [
+      "\\bVALUE_MAX\\s*[:=]",
+      "VALUE_MAX footer field"
+    ],
+    [
+      "\\bENERGY\\s*[:=]",
+      "ENERGY footer field"
+    ],
+    [
+      "\\bB2\\s*[:=]",
+      "B2: (artifact) footer field"
+    ],
+    [
+      "\\bLIVENESS\\s*[:=]",
+      "LIVENESS footer field"
+    ],
+    [
+      "^\\s*L\\s*[:=]\\s",
+      "L: (what crystallized) footer field"
+    ],
+    [
+      "φ\\s*⋂\\s*Ω",
+      "Q-phase formula φ ⋂ Ω"
+    ],
+    [
+      "δE",
+      "P-phase energy term δE"
+    ],
+    [
+      "δV",
+      "P-phase value term δV"
+    ],
+    [
+      "∇",
+      "gradient ∇ — the private direction"
+    ],
+    [
+      "B''",
+      "B'' — the private artifact"
+    ],
+    [
+      "##\\s*α",
+      "α section heading"
+    ],
+    [
+      "##\\s*Z\\b",
+      "Z section heading"
+    ],
+    [
+      "##\\s*∇",
+      "∇ section heading"
+    ],
+    [
+      "##\\s*Raw Material",
+      "raw-material section (the φ corpus)"
+    ],
+    [
+      "##\\s*The Field Condition",
+      "field-condition section"
+    ],
+    [
+      "\"(?:opened|pending|gate_violations)\"",
+      "gate-machine JSON"
+    ],
+    [
+      "^cycle:\\s*\\d",
+      "cycle number in frontmatter (deanonymization vector)"
+    ],
+    [
+      "#\\s*Cycle\\s+\\d",
+      "Cycle-N heading (deanonymization vector)"
+    ],
+    [
+      "[\\u200b\\u200c\\u200d\\u2060\\ufeff]",
+      "zero-width character (steganography channel)"
+    ],
+    [
+      "(?im)^\\s*author\\s*[:=]\\s*\\S",
+      "author attribution (the commons has no authors)"
+    ],
+    [
+      "\\bBy:\\s+\\w",
+      "by-line attribution"
+    ],
+    [
+      "[\\w.+-]+@[\\w-]+\\.\\w+",
+      "email address (an identity)"
+    ]
+  ]
+}

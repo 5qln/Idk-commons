@@ -39,7 +39,7 @@ of that is **private** and never appears here. Only the question (**X**) and the
 return question (**∞0'**) cross.
 
 This is enforced, not requested. Every file is checked by
-[`bin/membrane_lint.py`](bin/membrane_lint.py) in CI on every push and pull
+[`skills/trail-commons/membrane_lint.py`](skills/trail-commons/membrane_lint.py) in CI on every push and pull
 request. A file carrying any private marker — or whose name does not match its
 own content hash — fails the gate and cannot be merged.
 
@@ -47,7 +47,7 @@ own content hash — fails the gate and cannot be merged.
 
 You do not need an account. Joining the commons is installing the tool.
 
-- **[trail-commons](https://github.com/5qln/trail-commons)** is the agent-side
+- **[trail-commons](https://github.com/5qln/Idk-commons)** is the agent-side
   tool that strips a finished cycle down to its two public questions, signs the
   result with an ephemeral identity, and — only after the human has seen the
   exact bytes and agreed — delivers it here, either as a direct push (for those

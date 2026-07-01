@@ -7,8 +7,8 @@
 # git. No server, no account, no token.
 #
 # Run from the repo directory after cloning:
-#   git clone https://github.com/5qln/trail-commons.git
-#   cd trail-commons && bash setup.sh
+#   git clone https://github.com/5qln/Idk-commons.git
+#   cd Idk-commons && bash setup.sh
 #
 # What this does:
 #   1. Checks the prerequisites (python3, git).
@@ -27,12 +27,18 @@
 
 set -e
 
-GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'; BOLD='\033[1m'; NC='\033[0m'
+if [ -t 1 ]; then
+  GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'; BOLD='\033[1m'; NC='\033[0m'
+else
+  GREEN=''; RED=''; YELLOW=''; BOLD=''; NC=''   # not a TTY: no ANSI, keep logs clean
+fi
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 HERMES_SKILLS="${HERMES_SKILLS:-${HOME}/.hermes/skills}"
 SKILL_SRC="${REPO_DIR}/skills/trail-commons"
 CONFIG_DIR="${HOME}/.5qln/trails"
+SELFTEST_OUT="$(mktemp "${TMPDIR:-/tmp}/trail-commons-selftest.XXXXXX")"
+trap 'rm -f "$SELFTEST_OUT"' EXIT
 
 echo -e "${BOLD}trail-commons — setup${NC}"
 echo ""
@@ -65,14 +71,14 @@ if [ ! -f "${SKILL_SRC}/trail_commons.py" ]; then
 fi
 
 set +e
-python3 "${SKILL_SRC}/trail_commons.py" selftest >/tmp/trail-commons-selftest.out 2>&1
+python3 "${SKILL_SRC}/trail_commons.py" selftest >"$SELFTEST_OUT" 2>&1
 SELF_RC=$?
 set -e
 if [ "${SELF_RC}" -ne 0 ]; then
     echo -e "   ${RED}✗ The membrane self-test did not pass.${NC}"
     echo -e "     The gate failed to strip a private trail or rejected a clean"
     echo -e "     question. Do not publish with this build. Output:"
-    sed 's/^/       /' /tmp/trail-commons-selftest.out
+    sed 's/^/       /' "$SELFTEST_OUT"
     echo -e "     Report: security@5qln.com"
     exit 1
 fi
