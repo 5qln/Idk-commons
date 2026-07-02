@@ -45,6 +45,16 @@ def test_lint_rejects_non_md(tmp_path):
     assert ml.main([str(j)]) == 1
 
 
+# ---- H11: an ancestor dir named "questions" must not break the shard check ----
+def test_ancestor_dir_named_questions_does_not_break_shard():
+    heading_text = "Does the shard survive an ancestor of the same name?"
+    want = ml.content_hash(heading_text)
+    body = (f"---\nspdx: CC0-1.0\ncontent_hash: sha256:{want}\n---\n\n"
+            f"# {heading_text}\n\n*CC0*\n\n## ∞0' — R\n\nWho?\n")
+    relname = f"/home/user/questions/questions/{want[:2]}/{want[2:4]}/{want}.md"
+    assert ml.check(body, relname) == []
+
+
 # ---- client gate (H14 + folding) is as strong as the lint ----
 def test_client_membrane_check_folds_confusables():
     # math-bold alpha must be caught by the CLIENT too, not just CI

@@ -138,7 +138,7 @@ and reveals nothing about who, when, or in what order.
 
 **Answer: the steward seeds it, and an empty commons says so gracefully.**
 
-The bootstrap repo `github.com/5qln/questions` ships a README, the CC0 license,
+The bootstrap repo `github.com/5qln/Questions` ships a README, the CC0 license,
 the CI gate, and a small number of seed questions in the fan-out layout, so the
 very first `discover` returns something to sit with. When a commons is genuinely
 empty, `discover` does not error — it returns a quiet note: *the commons is

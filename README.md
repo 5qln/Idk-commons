@@ -139,6 +139,24 @@ One membrane, three repos — each holds one part and only that part:
 | [5qln/Idk-commons](https://github.com/5qln/Idk-commons) | **The transport.** This repo — strips, gates, and carries X and ∞0' after the human attests. |
 | [5qln/questions](https://github.com/5qln/questions) | **The commons of record.** Questions only, CC0, no authors. |
 
+## Naming
+
+Three names show up around the commons. They are not one thing said three
+ways — they name three different layers, and each is used deliberately:
+
+- **The Question Commons** — the *product*: the public, CC0 collection of
+  questions, published at [`5qln/questions`](https://github.com/5qln/questions).
+  It is what you join.
+- **trail-commons** — the *tool*: the agent-side skill in
+  `skills/trail-commons/` (plus the shared membrane gate) that strips a finished
+  `/idk` cycle down to its two public questions and delivers them to the
+  commons. The name describes the job — it carries the public residue of a
+  private **trail** into the **commons**. It is what you install.
+- **Idk-commons** — the *repository*: this repo, which ships that tool. It is
+  where the tool lives.
+
+Product, tool, repo. Nothing to reconcile.
+
 ## License
 
 Everything here is dedicated to the public domain under
