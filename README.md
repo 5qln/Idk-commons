@@ -62,15 +62,36 @@ what the gate honestly cannot do (stylometry).
 
 ## Install
 
+You usually don't install this directly. The staged path: install
+[`/idk`](https://github.com/5qln/Idk) first and walk cycles; the first time
+you type `/idk publish`, your agent installs this repo at that moment — the
+transport arrives exactly when a finished cycle wants to cross.
+
+To install it explicitly, send one message to your Hermes agent:
+
+> Clone `https://github.com/5qln/Idk-commons` into `~/idk-commons`, run
+> `bash ~/idk-commons/setup.sh`, then load the `trail-commons` skill. If any
+> check fails, stop and show me the output — don't work around it.
+
+Or by hand:
+
 ```bash
 git clone https://github.com/5qln/Idk-commons.git
 cd Idk-commons && bash setup.sh
 ```
 
 `setup.sh` checks the prerequisites (python3, git), runs the membrane
-self-test — it refuses to install a gate that does not catch private
-content — and installs the one skill into your Hermes agent
-(`~/.hermes/skills`, override with `HERMES_SKILLS`).
+self-test, and installs the one skill into your Hermes agent
+(`~/.hermes/skills`; if your `HERMES_HOME` lives elsewhere, run
+`HERMES_SKILLS=$HERMES_HOME/skills bash setup.sh`).
+
+The self-test is a **refusal gate**, not a formality: setup refuses to
+install a gate that fails to catch private content. A refusal is a stop, not
+an obstacle to route around.
+
+The commons repo itself is never installed — the tool clones
+[5qln/questions](https://github.com/5qln/questions) on its own at the first
+`discover` or `publish`.
 
 ## What a published question looks like
 
