@@ -14,8 +14,6 @@ proof-of-concept. Please do **not** open a public issue for a suspected leak.
 - Acknowledgement within **3 business days**.
 - Coordinated disclosure; we agree a date before any public note.
 
-Encrypt sensitive reports with our PGP key: `TODO: publish fingerprint here`.
-
 ## Scope notes
 
 `membrane-spec.json` is the shared source of truth for the forbidden markers and

@@ -152,7 +152,18 @@ def iter_all_files():
 
 def main(argv):
     if argv:
-        targets = [Path(a) for a in argv]
+        # A directory argument means "everything under it" — same treatment
+        # the no-argument scan gives questions/ (non-.md files still rejected).
+        targets = []
+        for a in argv:
+            p = Path(a)
+            if p.is_dir():
+                targets.extend(sorted(q for q in p.rglob("*") if q.is_file()))
+            else:
+                targets.append(p)
+        if not targets:
+            print("✗ membrane gate: the named director(y/ies) contain no files.")
+            return 1
     else:
         found = iter_all_files()
         if found is None:
