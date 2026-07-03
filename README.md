@@ -139,6 +139,10 @@ One membrane, three repos — each holds one part and only that part:
 | [5qln/Idk-commons](https://github.com/5qln/Idk-commons) | **The transport.** This repo — strips, gates, and carries X and ∞0' after the human attests. |
 | [5qln/questions](https://github.com/5qln/questions) | **The commons of record.** Questions only, CC0, no authors. |
 
+For the full picture — how a question moves through all three and what never
+crosses the membrane — see [`SYSTEM.md`](https://github.com/5qln/Idk/blob/main/SYSTEM.md).
+Maintaining this repo? Read [`AGENTS.md`](AGENTS.md) first.
+
 ## Naming
 
 Three names show up around the commons. They are not one thing said three
